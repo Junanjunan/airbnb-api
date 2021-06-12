@@ -2,6 +2,7 @@ from rest_framework import serializers
 from users.serializers import UserSerializer
 from .models import Room
 
+
 class ReadRoomSerializer(serializers.ModelSerializer):
 
     user = UserSerializer()
@@ -25,3 +26,11 @@ class WriteRoomSerializer(serializers.Serializer):
     check_out = serializers.TimeField(default="00:00:00")
     instant_book = serializers.BooleanField(default=False)
 
+    def create(self, validated_data):
+        return Room.objects.create(**validated_data)
+
+    def validate_beds(self, beds):
+        if beds < 5:
+            raise serializers.ValidationError("Your house is too small")
+        else:
+            return beds
