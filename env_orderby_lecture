@@ -626,7 +626,8 @@
                                                             # RoomsView에서 room을 post를 통해 create 한다면 serialier를 data만을 이용해서 initialize 한다.
                                                             # update를 한다면, instance를 가지고 serializer를 initialize 해야하는 것을 알려주기 때문에 create, update를 save가 자동으로 구분
                                                             # 이제 이를 이용해서 views.py/RoomView의 put을 채워보자
-                print(instance, validated_data)             
+                print(instance, validated_data)
+                return Room.objects.update(**validated_date)             
 
 
     (rooms/views.py)

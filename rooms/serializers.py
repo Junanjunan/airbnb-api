@@ -40,3 +40,4 @@ class WriteRoomSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         print(instance, validated_data)
+        return Room.objects.update(**validated_data)

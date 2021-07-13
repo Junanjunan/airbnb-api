@@ -49,7 +49,7 @@ class RoomView(APIView):
                 return Response(status=status.HTTP_403_FORBIDDEN)
             serializer = WriteRoomSerializer(
                 room, data=request.data, partial=True)
-            print(serializer.is_valid(), serializer.errors)
+            # print(serializer.is_valid(), serializer.errors)         # 오류가 나는지, 어떤 오류가 나는지를 파악해서 수정하자
             if serializer.is_valid():
                 serializer.save()
             else:
