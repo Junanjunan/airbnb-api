@@ -1248,3 +1248,109 @@
                     except Room.DoesNotExist:
                         pass
                 return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+# 2.10 Creating Account
+    (users/serializers.py)
+        from rest_framework import serializers
+        from .models import User
+
+        class RelatedUserSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = User
+                fields = (
+                    "username",
+                    "first_name",
+                    "last_name",
+                    "email",
+                    "avatar",
+                    "superhost"
+                )
+                # fields = ("username", "superhost")
+
+
+
+
+        class UserSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = User
+                fields = (
+                    "id",
+                    "username",
+                    "first_name",
+                    "last_name",
+                    "email",
+                    "avatar",
+                    "superhost",
+                )
+                read_only_fields = (
+                    "id",
+                    "superhost",
+                    "avatar"
+                )
+
+            # def validate_last_name(self, value):            # validate로 대문자로 저장해보기
+            #     return value.upper()
+
+    (users/views.py)
+     WriteUserSerializer, ReadUserSerializer 모두 UserSerializer로 변경
+
+
+     # post user (create user)를 만들어보자
+
+     (users/views.py)
+        class UsersView(APIView):
+            
+            def post(self, request):
+                serializer = UserSerializer(data=request.data)
+                if serializer.is_valid():
+                    new_user = serializer.save()
+                    return Response(UserSerializer(new_user).data)
+                else:
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    (users/urls.py)
+        from django.urls import path
+        from . import views
+
+        app_name = "users"
+
+        urlpatterns = [
+            path("", views.UsersView.as_view()),
+            path("me/", views.MeView.as_view()),
+            path("me/favs/", views.FavsView.as_view()),
+            path("<int:pk>/", views.user_detail)
+        ]
+
+    
+    # create method를 이용해보자 
+        create method를 이용해서 save까지 해줘야 비밀번호 등 제대로 입력 되는 듯
+    (users/serializers.py)
+        class UserSerializer(serializers.ModelSerializer):
+
+            password = serializers.CharField(write_only=True)       # field에 password를 표기하지만(create 등 하기 위해서), read는 할 수 없게 write_only 설정
+
+            class Meta:
+                model = User
+                fields = (
+                    "id",
+                    "username",
+                    "first_name",
+                    "last_name",
+                    "email",
+                    "avatar",
+                    "superhost",
+                    "password"
+                )
+                read_only_fields = (
+                    "id",
+                    "superhost",
+                    "avatar"
+                )
+
+            def create(self, validated_data):
+                password = validated_data.get("password")
+                user = super().create(validated_data)
+                user.set_password(password)
+                user.save()
+                return user
