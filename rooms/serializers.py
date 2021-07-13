@@ -30,14 +30,35 @@ class WriteRoomSerializer(serializers.Serializer):
         return Room.objects.create(**validated_data)
 
     def validate(self, data):
-        if not self.instance:
+        if self.instance:                                               # update 할 때
+            check_in = data.get('check_in', self.instance.check_in)     # update 할 때는 check_in, check_out을 수정하지 않을 수 있다. 그때는 self.instance.check_in 에 이미 있는 값을 default로 가져온다.
+            check_out = data.get('check_out', self.instance.check_out)
+        else:                                                           # create 할 때
             check_in = data.get('check_in')
             check_out = data.get('check_out')
-            if check_in == check_out:
-                raise serializers.ValidationError(
-                    "Not enough time between changes")
+        if check_in == check_out:
+            raise serializers.ValidationError(
+                "Not enough time between changes")
         return data
 
     def update(self, instance, validated_data):
-        print(instance, validated_data)
-        return Room.objects.update(**validated_data)
+        instance.name = validated_data.get("name", instance.name)
+        instance.address = validated_data.get("address", instance.address)
+        instance.price = validated_data.get("price", instance.price)
+        instance.beds = validated_data.get("beds", instance.beds)
+        instance.lat = validated_data.get("lat", instance.lat)
+        instance.lng = validated_data.get("lng", instance.lng)
+        instance.bedrooms = validated_data.get("bedrooms", instance.bedrooms)
+        instance.bathrooms = validated_data.get("bathrooms", instance.bathrooms)
+        instance.check_in = validated_data.get("check_in", instance.check_in)
+        instance.check_out = validated_data.get("check_out", instance.check_out)
+        instance.instant_book = validated_data.get("instant_book", instance.instant_book)
+        instance.save()
+        return instance
+
+    # def update(self, instance, validated_data): 
+    #     return Room.objects.update(**validated_data)            # update를 다음과 같이 정의해도 되는 것 같음. 확인 필요
+    #                                                             # 정보가 수정되긴 하는데, 다음과 같은 오류 발생: 
+                                                                # Got AttributeError when attempting to get a value for field `user` on serializer `ReadRoomSerializer`.
+                                                                # The serializer field might be named incorrectly and not match any attribute or key on the `int` instance.
+                                                                # Original exception text was: 'int' object has no attribute 'user'.
