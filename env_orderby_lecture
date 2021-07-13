@@ -1,3 +1,10 @@
+# Django rest_framework에서의 CRUD
+    Create : POST
+    Read : GET
+    Update : PUT
+    Delete : ?
+
+
 # 1.0 APIs the Django Way
     (rooms/views.py)
         from django.core import serializers
@@ -1061,3 +1068,6 @@
                         raise serializers.ValidationError(
                             "Not enough time between changes")
                     return data
+
+
+    # fav를 작성해보자
