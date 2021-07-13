@@ -28,3 +28,17 @@ class ReadUserSerializer(serializers.ModelSerializer):
             "is_active",
             "date_joined",
         )
+
+
+class WriteUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = (
+            "username",
+            "first_name",
+            "last_name",
+            "email"
+        )
+
+    # def validate_last_name(self, value):            # validate로 대문자로 저장해보기
+    #     return value.upper()

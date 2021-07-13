@@ -947,3 +947,117 @@
                     return Response(ReadUserSerializer(user).data)
                 except User.DoesNotExist:
                     return Response(status=status.HTTP_404_NOT_FOUND)
+
+
+# 2.6 MeView PUT
+
+    (users/views.py)
+        from users.serializers import ReadUserSerializer
+        from rest_framework.response import Response
+        from rest_framework.permissions import IsAuthenticated
+        from rest_framework.decorators import api_view
+        from rest_framework.views import APIView
+        from rest_framework import status
+        from .serializers import ReadUserSerializer
+        from .models import User
+
+
+        class MeView(APIView):
+            
+            permission_classes = [IsAuthenticated]
+
+            def get(self, request):
+                return Response(ReadUserSerializer(request.user).data)
+
+        # is_authenticated 를 쓰지 않고, permission_classes를 사용 -> if문으로 is_authenticated를 사용하면, else의 경우도 정의해줘야 돼서 번거로운데 permission_classes 는 이를 해결해준다 함
+        # FBV에 쓸때는 다음과 같이 decorator로 쓰면됨
+        # @permission_classes([IsAuthenticated])
+
+
+    (users/serializers.py)
+        class WriteUserSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = User
+                fields = (
+                    "username",
+                    "first_name",
+                    "last_name",
+                    "email"
+                )
+
+
+    (users/views.py)
+        from users.serializers import ReadUserSerializer
+        from rest_framework.response import Response
+        from rest_framework.permissions import IsAuthenticated
+        from rest_framework.decorators import api_view
+        from rest_framework.views import APIView
+        from rest_framework import status
+        from .serializers import ReadUserSerializer, WriteUserSerializer
+        from .models import User
+
+
+        class MeView(APIView):
+            
+            permission_classes = [IsAuthenticated]
+
+            def get(self, request):
+                return Response(ReadUserSerializer(request.user).data)
+
+            def put(self, request):
+                serializer = WriteUserSerializer(request.user, data=request.data, partial=True)        # request.user: instance임
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response()
+                else:
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 이렇게 ModelSerializer를 쓰면, update 할 때 모든 instance를 쓰는 것 등은 안해도 된다..?
+        # ModelSerializer에 validate가 필요한 경우. 예를 들어 다음과 같이 해서 저장한 값을 대문자로 해주는 validate 적용 가능
+            (users/serializers.py)
+                class WriteUserSerializer(serializers.ModelSerializer):
+                    class Meta:
+                        model = User
+                        fields = (
+                            "username",
+                            "first_name",
+                            "last_name",
+                            "email"
+                        )
+
+                    def validate_first_name(self, value):
+                        return value.upper()
+
+    ModelSerializer로 rooms/serializers.py/WriteRoomSerializer도 짧게 바꿔보자
+        (rooms/serializers.py)
+            from rest_framework import serializers
+            from users.serializers import RelatedUserSerializer
+            from .models import Room
+
+
+            class ReadRoomSerializer(serializers.ModelSerializer):
+
+                user = RelatedUserSerializer()
+
+                class Meta:
+                    model = Room
+                    exclude = ("modified",)
+
+
+            class WriteRoomSerializer(serializers.ModelSerializer):
+                class Meta:
+                    model = Room
+                    exclude = ("user", "modified", "created")
+
+                
+                def validate(self, data):
+                    if self.instance:                                               # update 할 때
+                        check_in = data.get('check_in', self.instance.check_in)     # update 할 때는 check_in, check_out을 수정하지 않을 수 있다. 그때는 self.instance.check_in 에 이미 있는 값을 default로 가져온다.
+                        check_out = data.get('check_out', self.instance.check_out)
+                    else:                                                           # create 할 때
+                        check_in = data.get('check_in')
+                        check_out = data.get('check_out')
+                    if check_in == check_out:
+                        raise serializers.ValidationError(
+                            "Not enough time between changes")
+                    return data

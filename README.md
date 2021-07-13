@@ -14,5 +14,5 @@ REST & GraphQL API of the Airbnb Clone using Django REST Framework and Graphene 
 - [X] Edit Room
 - [X] Delete Room
 - [ ] Add Room to Favourites
-- [ ] See Profile
-- [ ] Edit Profile
+- [X] See Profile
+- [X] Edit Profile
