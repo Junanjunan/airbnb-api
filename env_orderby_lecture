@@ -1419,3 +1419,108 @@
             user를 식별할 수 있는 수준의 id(pk) 정도만 담아야 한다. username, email도 넣지 말아라
             그런데 왜 JWT를 사용하는 것인가?
             우리 server는 token에 변경사항이 있는지를 판단한다. 인증 할 때, 누구도 이 token을 건들지 않았다는 것을 확인하는 것임
+
+
+# 2.12 JWT Decoding and Auth
+    (config/settings.py)
+        REST_FRAMEWORK = {
+            'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+            'PAGE_SIZE': 10,
+            'DEFAULT_AUTHENTICATION_CLASSES': [                             # Django RESR framework API Guid authentication에서 가져오기 https://www.django-rest-framework.org/api-guide/authentication/
+                # 'rest_framework.authentication.BasicAuthentication',        # 둘 중 한가지 선택, 강의에서는 SessionAuthentication을 이용하자
+                'rest_framework.authentication.SessionAuthentication',  
+            ]
+        }
+
+    token을 통해서 유저 인증등을 진행하려고 하는데, authentication credentials 등이 없다는 오류가 발생한다...
+    Custom authentication을 해보자
+    Django REST framework에 가서 API Guide에 Custom authentication 이용 https://www.django-rest-framework.org/api-guide/authentication/#custom-authentication
+
+    (config/authentication.py) 생성, 바로 위에서 볼수 있는 Example 가져와서 수정
+        from django.contrib.auth.models import User
+        from rest_framework import authentication
+        from rest_framework import exceptions
+
+        class ExampleAuthentication(authentication.BaseAuthentication):
+            def authenticate(self, request):
+                username = request.META.get('HTTP_X_USERNAME')
+                if not username:
+                    return None
+
+                try:
+                    user = User.objects.get(username=username)
+                except User.DoesNotExist:
+                    raise exceptions.AuthenticationFailed('No such user')
+
+                return (user, None)
+
+
+        위의 내용을 다음과 같이 수정해보자 우선
+
+        from django.contrib.auth.models import User
+        from rest_framework import authentication
+        from rest_framework import exceptions
+
+        class JWTAuthentication(authentication.BaseAuthentication):
+            def authenticate(self, request):
+                print(request.META)
+
+        그리고 settings.py에 추가
+        (config/settings.py)
+            REST_FRAMEWORK = {
+                'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+                'PAGE_SIZE': 10,
+                'DEFAULT_AUTHENTICATION_CLASSES': [
+                    'config.authentication.JWTAuthentication',
+                    'rest_framework.authentication.SessionAuthentication',
+                ]
+            }
+
+        이렇게 해주고 JWTtoken을 보내면(어떤 프로그램으로 보내던데...) console에 HTTP_AUTHORIZATION = [JWT token 내용] 출력 됨
+        이를 다시 출력해보자
+
+        (config/authentication.py)
+            class JWTAuthentication(authentication.BaseAuthentication):
+                        def authenticate(self, request):
+                            print(request.META.get("HTTP_AUTHORIZATION"))
+        
+        X-JWT를 구분해서 보려면(X-JWT는 관습적으로 붙음)
+        (config/authentication.py)
+            class JWTAuthentication(authentication.BaseAuthentication):
+                def authenticate(self, request):
+                    username = request.META.get('HTTP_X_USERNAME')
+                    token = request.META.get("HTTP_AUTHORIZATION")
+                    if token is None:
+                        return None
+                    xjwt, jwt_token = token.split(" ")
+                    print(xjwt, jwt_token)
+
+            이렇게 하면 X-JWT 와 JWT-token이 분리돼서 출력되는것 확인 가능
+
+        (config/authentication.py)
+            import jwt
+            from django.conf import settings
+            from rest_framework import authentication
+            from users.models import User                                   # from django.contrib.auth.models import User 를 지우고 얘로 대체
+
+            class JWTAuthentication(authentication.BaseAuthentication):
+                def authenticate(self, request):
+                    try:
+                        token = request.META.get("HTTP_AUTHORIZATION")      # token을 HTTP로 부터 받아서
+                        if token is None:
+                            return None
+                        xjwt, jwt_token = token.split(" ")                  # token 구조를 분석하고
+                        # jwt.decode(encoded_jwt, 'secret', algorithms=['HS256'])       # 기본 형식, pyjwt documentation 참고
+                        decoded = jwt.decode(jwt_token, settings.SECRET_KEY, algorithms=['HS256'])  # decode 하고
+                        pk = decoded.get("pk")                              
+                        user = User.objects.get(pk=pk)                      # decode한 token으로 user도 찾고
+                        return (user, None)                                 # 그 user를 return
+                    except (ValueError, jwt.exceptions.DecodeError, User.DoesNotExist):
+                        return None
+                    # except ValueError:                                        # 위 except를 다음과 같이 2개로 나눠도 된다
+                    #     return None
+                    # except jwt.exceptions.DecodeError:
+                    #     raise exceptions.AuthenticationFailed(detail="JWT Format Invalid")
+
+        위와 같이 해서 우리 API가 JWT token을 받았을 떄, authentication을 하기 위해서 token을 어떻게 이해하는지 가르친 것임
+        JWT Authentication 완료

@@ -95,7 +95,7 @@ def login(request):
         return Response(status=status.HTTP_400_BAD_REQUEST)
     user = authenticate(username=username, password=password)
     if user is not None:
-        encoded_jwt = jwt.encode({"id": user.pk}, settings.SECRET_KEY, algorithm="HS256")   # encoded_jwt = jwt.encode({"some": "payload"}, "secret", algorithm="HS256")
+        encoded_jwt = jwt.encode({"pk": user.pk}, settings.SECRET_KEY, algorithm="HS256")   # encoded_jwt = jwt.encode({"some": "payload"}, "secret", algorithm="HS256")
         print(encoded_jwt)
         return Response(data={"token": encoded_jwt})
     else:
