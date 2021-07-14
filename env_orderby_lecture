@@ -1531,4 +1531,213 @@
         Token과 JWT의 차이점: JWT는 database에 저장되지 않고, user에만 저장
         TokenAuthentication은 token의 일부를 database에 저장해둬야 한다.
         따라서 migration도 해주어야 하고, user를 위한 token을 생성해주어야 한다.
-        이런 면에서 JWTAuthentication이 TokenAuthentication에 비해서 database측면에서 좋다
+        이런 면에서 JWTAuthentication이 TokenAuthentication에 비해서 database측면에서 좋다.
+
+
+# 2.14 Manual Pagination
+    (rooms/views.py)
+        from rest_framework.decorators import api_view
+
+        @api_view(["GET"])
+        def room_search(request):
+            return Response()
+
+    (rooms/urls.py)
+        path("search/", views.room_search)
+
+    여기까지 하고 확인하면 페이지는 Room Search 페이지가 우선 호출된다
+
+    기존 RoomsView에서 5개 방만 가져왔었는데, pagination을 해보는 것으로 수정해보자
+
+    (rooms/views.py)
+        from rest_framework.pagination import PageNumberPagination
+
+
+        class RoomsView(APIView):
+
+            def get(self, request):
+                paginator = PageNumberPagination()
+                paginator.page_size = 20
+                rooms = Room.objects.all()
+                results = paginator.paginate_queryset(rooms, request)
+                serializer = RoomSerializer(results, many=True).data
+                return Response(serializer)
+
+        # http://127.0.0.1:8000/api/v1/rooms/?page=2
+
+    pagination 한 것을 최종적으로 적용하면,
+    (rooms/views.py)
+        from django.http.response import Http404
+        from rest_framework.views import APIView
+        from rest_framework.response import Response
+        from rest_framework import status
+        from rest_framework.decorators import api_view
+        from rest_framework.pagination import PageNumberPagination
+        from .models import Room
+        from .serializers import RoomSerializer
+
+
+        class RoomsView(APIView):
+
+            def get(self, request):
+                paginator = PageNumberPagination()
+                paginator.page_size = 20
+                rooms = Room.objects.all()
+                results = paginator.paginate_queryset(rooms, request)
+                serializer = RoomSerializer(results, many=True)                     # .data 아래에 적용
+                return paginator.get_paginated_response(serializer.data)            # paginaton을 적용한 response로 바꿔주었다. # 다음이나 이전 페이지 url 등을 나타내준다.
+
+            def post(self, request):
+                if not request.user.is_authenticated:
+                    return Response(status=status.HTTP_401_UNAUTHORIZED)
+                serializer = RoomSerializer(data=request.data)
+                if serializer.is_valid():
+                    room = serializer.save(user=request.user)
+                    room_serializer = RoomSerializer(room).data
+                    return Response(data=room_serializer, status=status.HTTP_200_OK)
+                else:
+                    return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+        class RoomView(APIView):
+
+            def get_room(self, pk):
+                try:
+                    room = Room.objects.get(pk=pk)
+                    return room
+                except Room.DoesNotExist:
+                    return None
+
+            def get(self, request, pk):
+                room = self.get_room(pk)
+                if room is not None:
+                    serializer = RoomSerializer(room).data
+                    return Response(serializer)
+                else:
+                    return Response(status=status.HTTP_404_NOT_FOUND)
+
+            def put(self, request, pk):
+                room = self.get_room(pk)
+                if room is not None:
+                    if room.user != request.user:
+                        return Response(status=status.HTTP_403_FORBIDDEN)
+                    serializer = RoomSerializer(
+                        room, data=request.data, partial=True)
+                    # print(serializer.is_valid(), serializer.errors)         # 오류가 나는지, 어떤 오류가 나는지를 파악해서 수정하자
+                    if serializer.is_valid():
+                        room = serializer.save()
+                        return Response(RoomSerializer(room).data)
+                    else:
+                        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response()
+                else:
+                    return Response(status=status.HTTP_404_NOT_FOUND)
+
+            def delete(self, request, pk):
+                room = self.get_room(pk)
+                if room.user != request.user:
+                    return Response(status=status.HTTP_403_FORBIDDEN)
+                if room is not None:
+                    room.delete()
+                    return Response(status=status.HTTP_200_OK)
+                else:
+                    return Response(status=status.HTTP_404_NOT_FOUND)
+
+
+        @api_view(["GET"])
+        def room_search(request):
+            paginator = PageNumberPagination()
+            paginator.page_size = 10
+            rooms = Room.objects.filter()
+            results = paginator.paginate_queryset(rooms, request)
+            serializer = RoomSerializer(results, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+    pagination 부분을 class로 처리해서, 중복되는 부분을 짧게 처리 가능.
+    (rooms/views.py)
+        from django.http.response import Http404
+        from rest_framework.views import APIView
+        from rest_framework.response import Response
+        from rest_framework import status
+        from rest_framework.decorators import api_view
+        from rest_framework.pagination import PageNumberPagination
+        from .models import Room
+        from .serializers import RoomSerializer
+
+
+        class OwnPagination(PageNumberPagination):          # class로 Pagination 처리
+            page_size = 20
+
+        class RoomsView(APIView):
+
+            def get(self, request):
+                paginator = OwnPagination()
+                rooms = Room.objects.all()
+                results = paginator.paginate_queryset(rooms, request)
+                serializer = RoomSerializer(results, many=True)
+                return paginator.get_paginated_response(serializer.data)
+
+            def post(self, request):
+                if not request.user.is_authenticated:
+                    return Response(status=status.HTTP_401_UNAUTHORIZED)
+                serializer = RoomSerializer(data=request.data)
+                if serializer.is_valid():
+                    room = serializer.save(user=request.user)
+                    room_serializer = RoomSerializer(room).data
+                    return Response(data=room_serializer, status=status.HTTP_200_OK)
+                else:
+                    return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+        class RoomView(APIView):
+
+            def get_room(self, pk):
+                try:
+                    room = Room.objects.get(pk=pk)
+                    return room
+                except Room.DoesNotExist:
+                    return None
+
+            def get(self, request, pk):
+                room = self.get_room(pk)
+                if room is not None:
+                    serializer = RoomSerializer(room).data
+                    return Response(serializer)
+                else:
+                    return Response(status=status.HTTP_404_NOT_FOUND)
+
+            def put(self, request, pk):
+                room = self.get_room(pk)
+                if room is not None:
+                    if room.user != request.user:
+                        return Response(status=status.HTTP_403_FORBIDDEN)
+                    serializer = RoomSerializer(
+                        room, data=request.data, partial=True)
+                    # print(serializer.is_valid(), serializer.errors)         # 오류가 나는지, 어떤 오류가 나는지를 파악해서 수정하자
+                    if serializer.is_valid():
+                        room = serializer.save()
+                        return Response(RoomSerializer(room).data)
+                    else:
+                        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response()
+                else:
+                    return Response(status=status.HTTP_404_NOT_FOUND)
+
+            def delete(self, request, pk):
+                room = self.get_room(pk)
+                if room.user != request.user:
+                    return Response(status=status.HTTP_403_FORBIDDEN)
+                if room is not None:
+                    room.delete()
+                    return Response(status=status.HTTP_200_OK)
+                else:
+                    return Response(status=status.HTTP_404_NOT_FOUND)
+
+
+        @api_view(["GET"])
+        def room_search(request):
+            paginator = OwnPagination()
+            rooms = Room.objects.filter()
+            results = paginator.paginate_queryset(rooms, request)
+            serializer = RoomSerializer(results, many=True)
+            return paginator.get_paginated_response(serializer.data)
