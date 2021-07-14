@@ -1886,3 +1886,55 @@
             if user.is_authenticated:
                 return obj in user.favs.all()       # ex 2 in [1,2,3,4]  인 경우 True, 5 in [1,2,3,4]인 경우 False 를 출력
         return False                                # 그 외에는 False만 출력
+
+
+# 3.1 RoomViewSet permissions
+
+    기존 것들을 ViewSet으로 대체해보자
+
+    (rooms/views.py)
+        from rest_framework.viewsets import ModelViewSet
+
+        class RoomViewSet(ModelViewSet):
+            queryset = Room.objects.all()
+            serializer_class = RoomSerializer
+    
+    (rooms/urls.py)
+        from rest_framework.routers import DefaultRouter
+        from . import views
+
+        app_name = "rooms"
+        router = DefaultRouter()
+        router.register("", views.RoomViewSet)
+
+        urlpatterns = router.urls
+
+    여기까지 하고 room을 확인하면, 많은 것들을 할 수 있는 페이지 나옴
+    문제는, 접근권한 등을 짜준 logic이 없어서 누구나 데이터에 접근이 가능하다. 수정까지도...
+    
+    우선, ViewSet에서
+    def list, def create, def retrieve, def update, def partial_update, def destroy가 있는데
+    list는 GET, create는 POST, retrieve는 하나만 GET, update는 PUT, destroy는 DELETE와 같다. partial_update는 PATCH와 같은데 잘 쓰지 않는다.
+    ex) list: GET /rooms,  retrieve: GET /room/1
+    이제 get_permissions moethod를 이용해보자.
+
+    (rooms/views.py)
+        from rest_framework.viewsets import ModelViewSet
+        from rest_framework import permissions
+        from .models import Room
+        from .serializers import RoomSerializer
+
+
+        class RoomViewSet(ModelViewSet):
+
+            queryset = Room.objects.all()
+            serializer_class = RoomSerializer
+
+            def get_permissions(self):
+                
+                if self.action == "list" or self.action =="retrieve":
+                    permission_classes = [permissions.AllowAny]
+                elif self.action == "create":
+                    permission_classes = [permissions.IsAuthenticated]
+                else:
+                    permission_classes = [IsOwner]
