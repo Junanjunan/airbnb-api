@@ -1984,3 +1984,85 @@
     위와 같이 해서 확인해보면,
     내가 만든 방이 아닌 경우는 읽기만 가능, 내가 가진 방이면 PUT, DELETE 까지 가능하도록 나옴
     /rooms/ 에서는 Create 할수 있음(POST) -> user를 만들 수 있는 칸이 나와서 수정해줘야 함
+
+
+# 3.3 I will Marry DRF (Create Room Logic)
+
+    (rooms/serializers.py)
+        from rest_framework import serializers
+        from users.serializers import RelatedUserSerializer
+        from .models import Room
+
+
+        class RoomSerializer(serializers.ModelSerializer):
+
+            user = RelatedUserSerializer(read_only=True)                    # user에 read_only=True 를 추가해주니 사라짐
+            is_fav = serializers.SerializerMethodField()
+
+            class Meta:
+                model = Room
+                exclude = ("modified",)
+                read_only_fields = ("user", "id", "created", "updated")     # read_only_fields에 user가 있는데도 위와 같이 해주어야 했음... 이유는?
+
+    아직 문제는 이렇게 해주고 POST를 해주면
+    NOT NULL constraint failed: rooms_room.user_id
+    room이 user 정보를 가지고 있지 않아서 오류가 생김
+        -> user에 read_only를 적용했기 때문에, user를 입력하지 않고 room을 생성한 것임
+        user를 만들어보자
+
+    (rooms/serializers.py)
+        from rest_framework import serializers
+        from users.serializers import RelatedUserSerializer
+        from .models import Room
+
+
+        class RoomSerializer(serializers.ModelSerializer):
+
+            def create(self, validated_data):               # create를 통해서 ModelViewSet에 있는 save를 덮어씌울 예정
+                print(self.context.get('request').user)
+
+        이렇게 하고 새로고침을 해보면, 오류가 뜨지만, user(taltal) 이 출력됨
+            -> context를 통해 user를 받을 수 있는 것 확인!
+
+    최종적으로
+
+    (rooms/serializers.py)
+        from rest_framework import serializers
+        from users.serializers import RelatedUserSerializer
+        from .models import Room
+
+
+        class RoomSerializer(serializers.ModelSerializer):
+
+            user = RelatedUserSerializer(read_only=True)
+            is_fav = serializers.SerializerMethodField()
+
+            class Meta:
+                model = Room
+                exclude = ("modified",)
+                read_only_fields = ("user", "id", "created", "updated")         
+                                                                                
+            def validate(self, data):
+                if self.instance:                                               
+                    check_in = data.get('check_in', self.instance.check_in)     
+                    check_out = data.get('check_out', self.instance.check_out)
+                else:                                                           
+                    check_in = data.get('check_in')
+                    check_out = data.get('check_out')
+                if check_in == check_out:
+                    raise serializers.ValidationError(
+                        "Not enough time between changes")
+                return data
+
+            def get_is_fav(self, obj):
+                request = self.context.get("request")
+                if request:
+                    user = request.user
+                    if user.is_authenticated:
+                        return obj in user.favs.all()
+                return False
+
+            def create(self, validated_data):                                   # 덮어쓰기를 함으로써, DRF가 알아서 request를 context로 보내주는 것
+                request = self.context.get('request')
+                room = Room.objects.create(**validated_data, user=request.user)
+                return room
