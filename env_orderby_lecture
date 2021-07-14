@@ -1938,3 +1938,49 @@
                     permission_classes = [permissions.IsAuthenticated]
                 else:
                     permission_classes = [IsOwner]
+
+
+# 3.2 RoomViewSet IsOwner
+    
+    (rooms/permissions.py) 생성
+        from rest_framework.permissions import BasePermission   # BasePermission: permissions.IsAuthenticated 에 있는 것을 타고 들어가서 확인한 것, IsAuthenticated는 has_permission method를 갖고 있다.
+
+
+        class IsOwner(BasePermission)
+            
+            def has_object_permission(self, request, view, room):
+                return room.user == request.user
+
+    https://www.django-rest-framework.org/api-guide/permissions/#custom-permissions 를 보면,
+    1. .has_permission(self, request, view)
+    2. .has_object_permission(self, request, view, obj)
+    두가지가 있다.
+    1은 리스트 또는 개별 object 확인에 필요
+    2는 detail views를 위한 것이다. ex) /rooms/1 -> object에 대해서 볼수 있는 권한이 있는지 체크
+    2는 object 들에 대해서만 사용 가능 -> 우리가 원하는 것..
+
+    (rooms/views.py)
+        from .permissions import IsOwner
+
+
+        class RoomViewSet(ModelViewSet):
+
+            queryset = Room.objects.all()
+            serializer_class = RoomSerializer
+
+            def get_permissions(self):
+                
+                if self.action == "list" or self.action =="retrieve":
+                    permission_classes = [permissions.AllowAny]
+                elif self.action == "create":
+                    permission_classes = [permissions.IsAuthenticated]
+                else:
+                    permission_classes = [IsOwner]
+                return [permission() for permission in permission_classes]      # permission_classes에 있는 permission에 대해서 permission()을 실행해라. 길게 쓰면 아래와 같음
+                                                                                    # called_perm = []
+                                                                                    # for p in permission_classes:
+                                                                                    #    classed_perm.append(p())
+
+    위와 같이 해서 확인해보면,
+    내가 만든 방이 아닌 경우는 읽기만 가능, 내가 가진 방이면 PUT, DELETE 까지 가능하도록 나옴
+    /rooms/ 에서는 Create 할수 있음(POST) -> user를 만들 수 있는 칸이 나와서 수정해줘야 함
