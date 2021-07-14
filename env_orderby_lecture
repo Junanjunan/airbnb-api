@@ -2242,13 +2242,10 @@
         import jwt
         from django.conf import settings
         from django.contrib.auth import authenticate
-        from rooms import serializers
         from rooms.models import Room
         from users.serializers import UserSerializer
         from rest_framework.response import Response
-        from rest_framework.permissions import IsAuthenticated
         from rest_framework.decorators import action
-        from rest_framework.views import APIView
         from rest_framework import status
         from rest_framework.viewsets import ModelViewSet
         from rest_framework.permissions import IsAdminUser, AllowAny
@@ -2316,3 +2313,36 @@
         "pk": 130
     }
     특정 pk를 입력하고 put을 해주면 toggle 되는 것 확인 가능(없으면 추가, 있으면 삭제)
+
+
+# 3.8 Conclusions
+
+    < Tip >
+    
+    1.  WSGIPassAuthorization on
+        우리가 만든 인증방식: config/authentication.py -> JWTAuthentication 을 이용한다면
+        이는 header를 통해서 인증을 하는 방식인데
+        이때는 반드시 서버에 다음과 같은 설정을 해주어야 한다.  
+        
+        WSGIPassAuthorization On        (참고: https://www.django-rest-framework.org/api-guide/authentication/)
+
+        특히, Elastic Beanstalk를 이용하는데, 서버에 이를 설정해줘야 한다.
+        이를 안해주면 AWS가 자동으로 Authorization의 header를 없애버릴 것이다.
+
+        container_commands:
+        03wsgipass:
+            command: 'echo "WSGIPassAuthorization On" >> ../wsgi.conf'
+
+        위와 같은 식으로! (구체적인 설정방법은 다시 검색을.. 환경마다 다를테니)
+        
+    2. Renderer
+        (config/settings.py)
+            if not DEBUG:
+                REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = ['rest_framework.renderers.JSONRenderer',]
+
+        개발중일 때(DEBUG=True)는 rest_framework.renderers.BrowsableAPIRenderer 역시 default로 포함되어 있는데, 이는 여태까지 우리가 사용했던 화면을 보여주는 것이다.
+        개발중이 아닐때는 모든 유저가 우리가 봤던 화면을 볼수 잇게 하면 안되기 때문에, 위와 같이 설정을 바꿔준다.        
+
+
+    # 그 외 API 에 대한 것을 보도록 하자. 특히, caching, throttling, versioning, validators 등...
+        https://www.django-rest-framework.org/api-guide
