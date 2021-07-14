@@ -1828,3 +1828,61 @@
         여기까지 하고 http://127.0.0.1:8000/api/v1/rooms/search/?lat=52.520007&lng=13.404954 (베를린) 해보면
         나오긴 하는데, 아무것도 검색이 안된다 -> admin 페이지 가서 방 하나 선택해서 원하는 위도, 경도로 바꿔주고 다시 해보면 검색됨
 
+
+# 3.0 This is super important Watch this
+    is_fav를 만들어보자: 어떤 룸이 내 fav 목록에 들어가있는지 아닌지 확인하는 것을 만들어보자
+    Django REST framework 에서 dynamic field를 활용
+    -> SerializerMethodField를 이용할 것임
+
+    (rooms/serializers.py)
+        class RoomSerializer
+
+            am_i_sexy = serializers.SerializerMethodField       # SerializerMethodField는 get 함수와 항상 같이 다녀야 한다. (안그럼 오류 발생)
+
+            def get_am_i_sexy(self,obj):                        # serializer에 있는 모든 object를 각각 불러온다.
+                print(obj)                                      # obj를 print해보면 room name이 나온다. 즉, obj는 현재 처리중인 room을 가리킨다
+                return True
+
+        
+        get이 자동으로 붙여지는 이름이 아닌 다른 이름을 원한다면 다음과 같이!
+        
+            am_i_sexy = serializers.SerializerMethodField(method_name="potato")
+
+            def potato(self, obj):
+                print(obj)
+                return True
+
+    이 다음부터는, 이제 누가 해당 serializer를 요청하는지를 알아야 한다.
+
+    (rooms/views.py)
+        class RoomsView(APIView):
+
+            def get(self, request):
+                paginator = OwnPagination()
+                rooms = Room.objects.all()
+                results = paginator.paginate_queryset(rooms, request)
+                serializer = RoomSerializer(results, many=True, context={'request': request})   # request를 serializer에게 전달해서, 어떤 유저가 serializer를 요청하는지 알아보는데 이용할 것이다.(request.user를 이용할 예정)
+                return paginator.get_paginated_response(serializer.data)
+
+    (rooms/serializers.py)
+        class RoomSerializer(~):
+            is_fav = serializers.SerializerMethodField()
+
+            def get_is_fav(self, obj):
+                request = self.contet.get("request")
+                print(request.user)
+                return True
+        
+    여기까지 하고 /api/v1/rooms/ 에서 새로고침을 해보면, 유저네임(taltal)이 쭉 나온다.(아마 화면에 출력되는 room 개수만큼일 것임)
+    View가 context를 serializer에게 전달해주기 때문임
+    이제 이를 이용해서 본격적으로 is_fav를 만들어보자
+    
+    request가 context를 통해서 잘 전달되고 있다면(if request), 인증된 user가 있을때 (if user.is_authenticated), room이(즉, obj가) user의 fav 목록에 있는지 확인(return obj in user.favs.all())
+
+    def get_is_fav(self, obj):
+        request = self.context.get("request")
+        if request:
+            user = request.user
+            if user.is_authenticated:
+                return obj in user.favs.all()       # ex 2 in [1,2,3,4]  인 경우 True, 5 in [1,2,3,4]인 경우 False 를 출력
+        return False                                # 그 외에는 False만 출력
