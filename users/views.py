@@ -9,6 +9,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.permissions import IsAdminUser, AllowAny
 from rooms.serializers import RoomSerializer
 from rooms.models import Room
 from .serializers import UserSerializer
@@ -16,16 +18,18 @@ from .models import User
 
 
 
-class UsersView(APIView):
-    
-    def post(self, request):
-        serializer = UserSerializer(data=request.data)
-        if serializer.is_valid():
-            new_user = serializer.save()
-            return Response(UserSerializer(new_user).data)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class UsersViewset(ModelViewSet):
 
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+
+    def get_permission(self):
+        permission_classes = []
+        if self.action == "list":
+            permission_classes = [IsAdminUser]
+        elif self.action == "create" or self.action == "retrieve":
+            permission_classes = [AllowAny]
+        return [permission() for permission in permission_classes]
 
 class MeView(APIView):
     

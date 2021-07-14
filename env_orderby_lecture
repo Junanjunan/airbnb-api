@@ -2135,3 +2135,34 @@
                 return paginator.get_paginated_response(serializer.data)
 
         위와 같이 수정하고 /rooms/search/ 가보면 화면 작성-> 우리가 원한 url을 얻었다.
+
+
+# 3.5 Users Viewset
+    
+    (users/views.py)
+        from rest_framework.viewsets import ModelViewSet
+        from rest_framework.permissions import IsAdminUser, AllowAny
+
+        class UserViewset(ModelViewSet):
+
+            queryset = User.objects.all()
+            serializer_class = UserSerializer
+
+            def get_permission(self):
+                permission_classes = []
+                if self.action == "list":
+                    permission_classes = [IsAdminUser]
+                elif self.action == "create" or self.action == "retrieve":      # 이렇게 했을때 /api/v1/users/5/ 등에 접근하면 DELTE, PUT 등이 가능해서 안된다. 권한설정을 해주자: permissions.py 를 통해서
+                    permission_classes = [AllowAny]
+                return [permission() for permission in permission_classes]
+
+    (users/urls.py)
+        from rest_framework.routers import DefaultRouter
+        from . import views
+
+        app_name = "users"
+
+        router = DefaultRouter()
+        router.register("", views.UserViewset)
+
+        urlpatterns = router.urls
