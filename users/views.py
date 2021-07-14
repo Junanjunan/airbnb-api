@@ -28,7 +28,7 @@ class UsersViewset(ModelViewSet):
         permission_classes = []
         if self.action == "list":
             permission_classes = [IsAdminUser]
-        elif self.action == "create" or self.action == "retrieve":
+        elif self.action == "create" or self.action == "retrieve" or self.action == "favs":
             permission_classes = [AllowAny]
         else:
             permission_classes = [IsSelf]
@@ -47,28 +47,16 @@ class UsersViewset(ModelViewSet):
         else:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
-
-
-
-# @api_view(["GET", "POST"])     # database의 state를 바꿔주기 때문에 GET이 아닌 POST 이어야 한다??     # 아래 FavsView 하기 전에 시도되었던 FBV
-# @permission_classes([IsAuthenticated])    # 이용해주려면, from rest_framework.decorators import permission_classes 호출
-# def toggle_fav(request):
-#     room = request.data.get("room")
-#     print(room)
-
-
-class FavsView(APIView):
-
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        user = request.user
-        serializer = RoomSerializer(user.favs.all(), many=True).data
+    @action(detail=True)
+    def favs(self, request, pk):
+        user = self.get_object()        # 이렇게 하면 View가 보여주는 object를 return하게 된다. request.user를 쓰면 로그인이 안되어 있는 등, AnonymousUser 문제가 생김(AnonymousUser object has no attribute 'favs')
+        serializer = RoomSerializer(user.favs.all(), many=True, context={"request":request}).data
         return Response(serializer)
 
-    def put(self, request):             # favs를 만드는 것이 아니라, 있는 favs를 수정해주는 것이니까 post가 아니라 put method
+    @favs.mapping.put
+    def toggle_favs(self, request, pk):
         pk = request.data.get("pk", None)
-        user = request.user
+        user = self.get_object()        
         if pk is not None:
             try:
                 room = Room.objects.get(pk=pk)
@@ -80,6 +68,8 @@ class FavsView(APIView):
             except Room.DoesNotExist:
                 pass
         return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
 
 
 
