@@ -1786,3 +1786,45 @@
             results = paginator.paginate_queryset(rooms, request)
             serializer = RoomSerializer(results, many=True)
             return paginator.get_paginated_response(serializer.data)
+
+
+# 2.16 Searching Part Two
+    위도, 경도 추가하자 / 구글맵 이용해주는데, F12로 들어가서 Console이 있는 부분에 점3개 있는 부분클릭해서 Sensors로 확인하면 위도, 경도 등 위치 정보 확인, 이용 가능
+    (rooms/views.py)
+        @api_view(["GET"])
+        def room_search(request):
+            max_price = request.GET.get('max_price', None)
+            min_price = request.GET.get('min_price', None)
+            beds = request.GET.get('beds', None)
+            bedrooms = request.GET.get('bedrooms', None)
+            bathrooms = request.GET.get('bathrooms', None)
+            lat = request.GET.get("lat", None)
+            lng = request.GET.get("lng", None)
+            filter_kwargs = {}
+            if max_price is not None:
+                filter_kwargs["price__lte"] = max_price
+            if min_price is not None:
+                filter_kwargs["price__gte"] = min_price
+            if beds is not None:
+                filter_kwargs["beds__gte"] = beds
+            if bedrooms is not None:
+                filter_kwargs["bedrooms__gte"] = bedrooms
+            if bathrooms is not None:
+                filter_kwargs["bathrooms__gte"] = bathrooms
+            if lat is not None and lng is not None:
+                filter_kwargs["lat__gte"] = float(lat) - 0.005
+                filter_kwargs["lat__lte"] = float(lat) + 0.005
+                filter_kwargs["lng__gte"] = float(lng) - 0.005
+                filter_kwargs["lng__lte"] = float(lng) + 0.005
+            paginator = OwnPagination()
+            try:
+                rooms = Room.objects.filter(**filter_kwargs)
+            except ValueError:
+                rooms = Room.objects.all()
+            results = paginator.paginate_queryset(rooms, request)
+            serializer = RoomSerializer(results, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        여기까지 하고 http://127.0.0.1:8000/api/v1/rooms/search/?lat=52.520007&lng=13.404954 (베를린) 해보면
+        나오긴 하는데, 아무것도 검색이 안된다 -> admin 페이지 가서 방 하나 선택해서 원하는 위도, 경도로 바꿔주고 다시 해보면 검색됨
+
