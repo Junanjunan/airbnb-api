@@ -1506,7 +1506,7 @@
             class JWTAuthentication(authentication.BaseAuthentication):
                 def authenticate(self, request):
                     try:
-                        token = request.META.get("HTTP_AUTHORIZATION")      # token을 HTTP로 부터 받아서
+                        token = request.META.get("HTTP_AUTHORIZATION")      # token을 HTTP로 부터 받아서 / # META로부터 header 등의 여러 정보를 얻을 수 있따. 잘 활용하자
                         if token is None:
                             return None
                         xjwt, jwt_token = token.split(" ")                  # token 구조를 분석하고
@@ -1524,3 +1524,11 @@
 
         위와 같이 해서 우리 API가 JWT token을 받았을 떄, authentication을 하기 위해서 token을 어떻게 이해하는지 가르친 것임
         JWT Authentication 완료
+
+    
+# 2.13 JWT Recap
+    TokenAuthentication을 이용할 수도 있다.
+        Token과 JWT의 차이점: JWT는 database에 저장되지 않고, user에만 저장
+        TokenAuthentication은 token의 일부를 database에 저장해둬야 한다.
+        따라서 migration도 해주어야 하고, user를 위한 token을 생성해주어야 한다.
+        이런 면에서 JWTAuthentication이 TokenAuthentication에 비해서 database측면에서 좋다
