@@ -2346,3 +2346,25 @@
 
     # 그 외 API 에 대한 것을 보도록 하자. 특히, caching, throttling, versioning, validators 등...
         https://www.django-rest-framework.org/api-guide
+
+
+# 6.0 Requirements
+    node JS 필요 : $ nod -v 로 확인
+    simulator 필요: window는 Andoriod Studio
+    Expo: 앱을 만들기 위해(폰에 다운)
+
+
+# 6.1 Setup
+    github에 새 repository 필요 /airbnb-native
+
+    expo-cli 설치: $ npm i -g expo-cli (또는 yarn global add expo-cli)
+        확인: $ expo
+        실행: $ expo init (할 이름) - $ expo init airbnb-native
+            선택사항은 그냥 blank로
+                -> 프로젝트 생성
+        경로변경: cd airbnb-native
+
+    github 저장:
+        git remote add https://github.com/Junanjunan/airbnb-native
+
+    다음 설명은 airbnb-native 폴더에..?
