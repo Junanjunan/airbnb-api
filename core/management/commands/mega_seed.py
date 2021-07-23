@@ -7,7 +7,7 @@ from rooms.models import Room, Photo
 
 
 class Command(BaseCommand):
-
+    
     help = "It seeds the DB with tons of stuff"
 
     def handle(self, *args, **options):

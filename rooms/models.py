@@ -19,6 +19,7 @@ class Room(CoreModel):
         "users.User", on_delete=models.CASCADE, related_name="rooms"
     )
 
+
     def __str__(self):
         return self.name
 
@@ -28,8 +29,9 @@ class Room(CoreModel):
     photo_number.short_description = "Photo Count"
 
 
-class Photo(CoreModel):
 
+class Photo(CoreModel):
+    
     file = models.ImageField()
     room = models.ForeignKey(
         "rooms.Room", related_name="photos", on_delete=models.CASCADE
